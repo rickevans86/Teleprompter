@@ -1,6 +1,6 @@
 # Telepromptor
 
-A native Android teleprompter. One phone controls playback and up to three Android displays follow over Bluetooth Classic. The app uses no internet, accounts, or remote storage.
+A native Android teleprompter. One phone controls playback and up to three Android displays follow over Bluetooth Classic. Teleprompting works offline and requires no app account or remote storage.
 
 ## Build and run
 
@@ -13,6 +13,14 @@ sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
 
 The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. Run Compose instrumentation tests with `./gradlew :app:connectedDebugAndroidTest` on an emulator or connected device. GitHub Actions builds the APK, runs the JVM and emulator suites, and uploads the debug APK. Run `./gradlew ktlintCheck detekt` for style and static analysis.
 
+## Install and update
+
+Download `Telepromptor.apk` from the [latest release](https://github.com/rickevans86/Teleprompter/releases/latest). In the app, open **Settings → Update app** to get the latest signed APK in your browser. Sign in to GitHub if prompted and open the download to confirm installation in Android. Updates between signed releases keep your local scripts.
+
+Earlier debug builds use a separate signing key. Save a copy of each script before removing a debug build to install the signed release.
+
+For future releases, increment `versionCode`, sign the release APK with the original release key, and upload it to GitHub Releases as `Telepromptor.apk`. The update button uses that filename.
+
 ## CI runner
 
 Pushes to `main` and `native-teleprompter` use a repository runner with the standard `self-hosted`, `Linux`, and `X64` labels. Pull requests and pushes to other branches use GitHub-hosted runners. Keep write access to the self-hosted branches limited to people you trust with the runner machine.
@@ -21,7 +29,7 @@ The runner needs a supported version of the GitHub Actions runner software and a
 
 ## Connect two phones
 
-1. Install the debug APK on both phones. On the first phone, choose **HOST**, paste a script, optionally save it to the local script library, and tap **Go live**.
+1. Install the APK on both phones. On the first phone, choose **HOST**, paste a script, optionally save it to the local script library, and tap **Go live**.
 2. Tap **Clients**, grant Bluetooth access if prompted, then tap **Start hosting**. Tap **Make discoverable** for an unpaired client and accept the Android dialog.
 3. On the second phone, choose **CLIENT**. Select the paired host or tap **Scan nearby** and select the host by its Bluetooth device name. Confirm Android’s pairing prompts on both phones if they appear. You can also pair both phones in Android Bluetooth Settings first.
 4. Return to the host’s live panel and test play/pause, speed, font size, mirror, theme, alignment and seeking. Enable the 3-second countdown and try restarting. Verify that the client keeps the display awake and hides the system bars.

@@ -1,5 +1,6 @@
 package dev.telepromptor.protocol
 
+import dev.telepromptor.BuildConfig
 import dev.telepromptor.bluetooth.LinkEvent
 import dev.telepromptor.bluetooth.Transport
 import kotlinx.coroutines.CoroutineScope
@@ -176,7 +177,7 @@ class Session(
         val peer = Peer(now())
         peers[id] = peer
         peer.watchdog = scope.launch { expireWhenSilent(id, peer) }
-        send(id, Message(type = Kind.HELLO, role = localRole, appVersion = "1.0", deviceName = name()))
+        send(id, Message(type = Kind.HELLO, role = localRole, appVersion = BuildConfig.VERSION_NAME, deviceName = name()))
     }
 
     private fun receive(

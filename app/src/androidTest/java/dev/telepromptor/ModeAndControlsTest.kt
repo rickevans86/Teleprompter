@@ -19,7 +19,7 @@ class ModeAndControlsTest {
 
     @Test fun homeInvokesBothModeSelections() {
         val selections = mutableListOf<String>()
-        compose.setContent { MaterialTheme { HomeScreen({ selections += "host" }, { selections += "client" }) } }
+        compose.setContent { MaterialTheme { HomeScreen({ selections += "host" }, { selections += "client" }, {}) } }
         compose.onNodeWithText("HOST").performClick()
         compose.onNodeWithText("CLIENT").performClick()
         compose.runOnIdle { assertEquals(listOf("host", "client"), selections) }

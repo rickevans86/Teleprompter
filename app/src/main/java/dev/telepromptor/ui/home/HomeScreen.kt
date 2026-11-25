@@ -1,6 +1,8 @@
 package dev.telepromptor.ui.home
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -11,9 +13,14 @@ import androidx.compose.ui.unit.dp
 fun HomeScreen(
     host: () -> Unit,
     client: () -> Unit,
+    settings: () -> Unit,
 ) {
     Column(
-        Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),
+        Modifier
+            .fillMaxSize()
+            .safeDrawingPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -22,5 +29,6 @@ fun HomeScreen(
         Text("Write a script and control playback")
         OutlinedButton(client, Modifier.fillMaxWidth()) { Text("CLIENT") }
         Text("Connect to a host and display the script")
+        TextButton(settings) { Text("Settings") }
     }
 }

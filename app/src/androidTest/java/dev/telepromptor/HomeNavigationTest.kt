@@ -20,4 +20,13 @@ class HomeNavigationTest {
         compose.onNodeWithText("Back").performClick()
         compose.onNodeWithText("Telepromptor").assertIsDisplayed()
     }
+
+    @Test
+    fun settingsShowsInstalledVersionAndUpdateAction() {
+        compose.onNodeWithText("Settings").performClick()
+        compose.onNodeWithText("Installed version ${BuildConfig.VERSION_NAME}").assertIsDisplayed()
+        compose.onNodeWithText("Update app").assertIsDisplayed()
+        compose.onNodeWithText("Back").performClick()
+        compose.onNodeWithText("Telepromptor").assertIsDisplayed()
+    }
 }

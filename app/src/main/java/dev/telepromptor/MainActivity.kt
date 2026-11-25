@@ -12,6 +12,7 @@ import dev.telepromptor.bluetooth.LiveSession
 import dev.telepromptor.ui.client.ClientRoute
 import dev.telepromptor.ui.home.HomeScreen
 import dev.telepromptor.ui.host.HostRoute
+import dev.telepromptor.ui.settings.SettingsScreen
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -37,7 +38,14 @@ class MainActivity : ComponentActivity() {
 fun TelepromptorNavigation() {
     val nav = rememberNavController()
     NavHost(navController = nav, startDestination = "home") {
-        composable("home") { HomeScreen({ nav.navigate("host") }, { nav.navigate("client") }) }
+        composable("home") {
+            HomeScreen(
+                host = { nav.navigate("host") },
+                client = { nav.navigate("client") },
+                settings = { nav.navigate("settings") },
+            )
+        }
+        composable("settings") { SettingsScreen(back = { nav.popBackStack() }) }
         composable("host") { HostRoute(back = { nav.popBackStack() }) }
         composable("client") { ClientRoute(back = { nav.popBackStack() }) }
     }
