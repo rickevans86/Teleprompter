@@ -22,7 +22,8 @@ jobs:
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v5
       - uses: android-actions/setup-android@v3
-        if: runner.environment == 'self-hosted'
+        with:
+          packages: platform-tools
       - name: Install target SDK
         run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
       - run: ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:assembleDebugAndroidTest
@@ -45,7 +46,8 @@ jobs:
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v5
       - uses: android-actions/setup-android@v3
-        if: runner.environment == 'self-hosted'
+        with:
+          packages: platform-tools
       - run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
       - name: Enable KVM on the GitHub-hosted runner
         if: runner.environment == 'github-hosted'
