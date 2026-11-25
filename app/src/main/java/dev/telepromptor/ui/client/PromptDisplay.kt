@@ -18,21 +18,27 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.telepromptor.protocol.SessionView
+import kotlinx.coroutines.isActive
 import kotlin.math.ceil
 import kotlin.math.roundToInt
-import kotlinx.coroutines.isActive
 
 @Composable
-fun rememberFrameTime(active: Boolean, key: Any): State<Long> = produceState(
-    SystemClock.elapsedRealtime(), active, key,
-) {
-    value = SystemClock.elapsedRealtime()
-    if (active) {
-        while (isActive) {
-            withFrameNanos { value = SystemClock.elapsedRealtime() }
+fun rememberFrameTime(
+    active: Boolean,
+    key: Any,
+): State<Long> =
+    produceState(
+        SystemClock.elapsedRealtime(),
+        active,
+        key,
+    ) {
+        value = SystemClock.elapsedRealtime()
+        if (active) {
+            while (isActive) {
+                withFrameNanos { value = SystemClock.elapsedRealtime() }
+            }
         }
     }
-}
 
 @Composable
 fun PromptDisplay(
@@ -85,12 +91,14 @@ fun PromptDisplay(
         }
         if (view.countdownUntilMs != 0L) {
             val seconds = ceil((view.countdownUntilMs - frame.value) / 1000.0).toInt()
-            if (seconds > 0) Text(
-                seconds.toString(),
-                Modifier.align(Alignment.Center).background(background).padding(20.dp),
-                color = foreground,
-                fontSize = 64.sp,
-            )
+            if (seconds > 0) {
+                Text(
+                    seconds.toString(),
+                    Modifier.align(Alignment.Center).background(background).padding(20.dp),
+                    color = foreground,
+                    fontSize = 64.sp,
+                )
+            }
         }
     }
 }

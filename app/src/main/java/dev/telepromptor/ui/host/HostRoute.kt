@@ -15,23 +15,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.telepromptor.bluetooth.BluetoothAccess
 import dev.telepromptor.bluetooth.LiveSession
 import dev.telepromptor.bluetooth.VolumeShortcut
 import dev.telepromptor.protocol.Role
-import dev.telepromptor.protocol.Script
 import dev.telepromptor.service.HostService
 
 @Composable
-fun HostRoute(live: LiveSession, back: () -> Unit) {
+fun HostRoute(
+    back: () -> Unit,
+    model: HostModel = hiltViewModel(),
+) {
+    val live = model.live
     val context = LocalContext.current
     val view by live.session.view.collectAsStateWithLifecycle()
     var section by rememberSaveable { mutableStateOf("editor") }
     var useCountdown by rememberSaveable { mutableStateOf(false) }
     var speedSpan by remember { mutableIntStateOf(1) }
     var shortcut by rememberSaveable { mutableStateOf(VolumeShortcut.OFF) }
-    val session = live.session
+    val session = model.session
 
     fun stopAndLeave() {
         context.stopService(Intent(context, HostService::class.java))
@@ -40,7 +44,11 @@ fun HostRoute(live: LiveSession, back: () -> Unit) {
     }
 
     BackHandler {
-        if (section == "editor") stopAndLeave() else section = "editor"
+        when (section) {
+            "connect" -> section = "panel"
+            "panel" -> section = "editor"
+            else -> stopAndLeave()
+        }
     }
     DisposableEffect(live, section, shortcut, useCountdown) {
         live.volumeShortcut = if (section == "panel") shortcut else VolumeShortcut.OFF
@@ -49,12 +57,13 @@ fun HostRoute(live: LiveSession, back: () -> Unit) {
     }
 
     when (section) {
-        "connect" -> BluetoothAccess(live.radio.adapter, host = true, back = { section = "panel" }) {
-            HostConnections(live, back = { section = "panel" })
-        }
+        "connect" ->
+            BluetoothAccess(live.radio.adapter, host = true, back = { section = "panel" }) {
+                HostConnections(live, back = { section = "panel" })
+            }
         "panel" -> {
             LaunchedEffect(speedSpan, view.motion.state.speedPxPerSec) {
-                session.update { it.copy(fractionsPerSecond = (it.speedPxPerSec / speedSpan.toDouble()).coerceAtMost(100.0)) }
+                model.setPlaybackRate(speedSpan)
             }
             HostPanel(
                 view = view,
@@ -63,12 +72,7 @@ fun HostRoute(live: LiveSession, back: () -> Unit) {
                 back = { section = "editor" },
                 connect = { section = "connect" },
                 playPause = { live.togglePlayback(useCountdown) },
-                restart = {
-                    session.stopCountdown()
-                    session.update { it.copy(playing = false) }
-                    session.seek(0.0)
-                    session.play(if (useCountdown) 3 else 0)
-                },
+                restart = { model.restart(useCountdown) },
                 seek = session::seek,
                 update = session::update,
                 onCountdown = { useCountdown = it },
@@ -76,25 +80,33 @@ fun HostRoute(live: LiveSession, back: () -> Unit) {
                 onTravel = { speedSpan = it },
             )
         }
-        else -> ScriptEditor(back = ::stopAndLeave, live = {
-            session.begin(Role.HOST)
-            session.script(Script(it.id, it.title, it.text))
-            section = "panel"
-        })
+        else ->
+            ScriptEditor(back = ::stopAndLeave, live = {
+                model.startScript(it)
+                section = "panel"
+            })
     }
 }
 
 @Composable
-private fun HostConnections(live: LiveSession, back: () -> Unit) {
+private fun HostConnections(
+    live: LiveSession,
+    back: () -> Unit,
+) {
     val context = LocalContext.current
     val state by live.radio.listening.collectAsStateWithLifecycle()
     val view by live.session.view.collectAsStateWithLifecycle()
     var message by remember { mutableStateOf("") }
-    val discoverable = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        message = if (it.resultCode > 0) "Discoverable for ${it.resultCode} seconds" else "Discoverability was canceled"
-    }
+    val discoverable =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            message = if (it.resultCode > 0) "Discoverable for ${it.resultCode} seconds" else "Discoverability was canceled"
+        }
     Column(
-        Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp),
+        Modifier
+            .fillMaxSize()
+            .safeDrawingPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         TextButton(back) { Text("Back") }
@@ -109,8 +121,9 @@ private fun HostConnections(live: LiveSession, back: () -> Unit) {
         }
         Button(
             onClick = {
-                val intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
-                    .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120)
+                val intent =
+                    Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+                        .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120)
                 runCatching { discoverable.launch(intent) }
                     .onFailure { message = "Could not make this device discoverable." }
             },

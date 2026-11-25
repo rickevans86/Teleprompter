@@ -20,7 +20,13 @@ import androidx.core.content.ContextCompat
 
 @SuppressLint("MissingPermission")
 @Composable
-fun DevicePicker(adapter: BluetoothAdapter, status: String, back: () -> Unit, select: (String) -> Unit) {
+fun DevicePicker(
+    adapter: BluetoothAdapter,
+    status: String,
+    back: () -> Unit,
+    select: (String) -> Unit,
+    connecting: Boolean = false,
+) {
     val context = LocalContext.current
     val found = remember { mutableStateMapOf<String, String>() }
     var scanning by remember { mutableStateOf(false) }
@@ -31,25 +37,31 @@ fun DevicePicker(adapter: BluetoothAdapter, status: String, back: () -> Unit, se
             found[device.address] = name ?: device.address
         }
         runCatching { adapter.bondedDevices.forEach(::add) }
-        val receiver = object : BroadcastReceiver() {
-            @Suppress("DEPRECATION")
-            override fun onReceive(context: Context, intent: Intent) {
-                when (intent.action) {
-                    BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> scanning = false
-                    BluetoothDevice.ACTION_FOUND -> {
-                        val device = if (Build.VERSION.SDK_INT >= 33) {
-                            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
-                        } else {
-                            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+        val receiver =
+            object : BroadcastReceiver() {
+                @Suppress("DEPRECATION")
+                override fun onReceive(
+                    context: Context,
+                    intent: Intent,
+                ) {
+                    when (intent.action) {
+                        BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> scanning = false
+                        BluetoothDevice.ACTION_FOUND -> {
+                            val device =
+                                if (Build.VERSION.SDK_INT >= 33) {
+                                    intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+                                } else {
+                                    intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                                }
+                            device?.let(::add)
                         }
-                        device?.let(::add)
                     }
                 }
             }
-        }
-        val filter = IntentFilter(BluetoothDevice.ACTION_FOUND).apply {
-            addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
-        }
+        val filter =
+            IntentFilter(BluetoothDevice.ACTION_FOUND).apply {
+                addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
+            }
         ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
         onDispose {
             context.unregisterReceiver(receiver)
@@ -63,12 +75,12 @@ fun DevicePicker(adapter: BluetoothAdapter, status: String, back: () -> Unit, se
         Button(onClick = {
             scanning = runCatching { adapter.startDiscovery() }.getOrDefault(false)
             scanError = !scanning
-        }, enabled = !scanning) { Text(if (scanning) "Scanning…" else "Scan nearby") }
+        }, enabled = !scanning && !connecting) { Text(if (scanning) "Scanning…" else "Scan nearby") }
         if (scanError) Text("Scan unavailable. Check Bluetooth and, on older Android versions, turn on Location.")
         if (found.isEmpty()) Text("Make the host discoverable, or pair both devices in Android Settings.")
         LazyColumn {
             items(found.entries.sortedBy { it.value }, key = { it.key }) { (address, name) ->
-                TextButton(onClick = { select(address) }) {
+                TextButton(onClick = { select(address) }, enabled = !connecting) {
                     Column {
                         Text(name)
                         if (name != address) Text(address, style = MaterialTheme.typography.bodySmall)

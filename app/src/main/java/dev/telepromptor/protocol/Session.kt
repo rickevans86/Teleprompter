@@ -14,17 +14,26 @@ const val DRIFT_THRESHOLD = 0.012
 const val HEARTBEAT_MS = 2_000L
 const val TIMEOUT_MS = 6_000L
 
-data class Motion(val state: Playback = Playback(), val anchorMs: Long = 0) {
+data class Motion(
+    val state: Playback = Playback(),
+    val anchorMs: Long = 0,
+) {
     fun position(nowMs: Long): Double {
         val elapsedSeconds = (nowMs - anchorMs).coerceAtLeast(0) / 1000.0
         val advance = if (state.playing) elapsedSeconds * state.fractionsPerSecond else 0.0
         return (state.scrollOffset + advance).coerceIn(0.0, 1.0)
     }
 
-    fun sync(incoming: Playback, nowMs: Long, oneWayMs: Long, force: Boolean = false): Motion {
+    fun sync(
+        incoming: Playback,
+        nowMs: Long,
+        oneWayMs: Long,
+        force: Boolean = false,
+    ): Motion {
         val expected = Motion(incoming, nowMs - oneWayMs).position(nowMs)
         val local = position(nowMs)
-        val snap = force || state.playing != incoming.playing || kotlin.math.abs(expected - local) > DRIFT_THRESHOLD
+        val threshold = (incoming.fractionsPerSecond * 0.25).coerceIn(0.00003, DRIFT_THRESHOLD)
+        val snap = force || state.playing != incoming.playing || kotlin.math.abs(expected - local) > threshold
         return Motion(incoming.copy(scrollOffset = if (snap) expected else local), nowMs)
     }
 }
@@ -44,7 +53,14 @@ class Session(
     private val now: () -> Long,
     private val name: () -> String,
 ) {
-    private data class Peer(var lastSeen: Long, var name: String? = null, var oneWayMs: Long = 0)
+    private data class Peer(
+        var lastSeen: Long,
+        var name: String? = null,
+        var oneWayMs: Long = 0,
+        var receivedState: Boolean = false,
+        var watchdog: Job? = null,
+    )
+
     private val peers = linkedMapOf<String, Peer>()
     private val assembler = ScriptAssembler()
     private val mutableView = MutableStateFlow(SessionView())
@@ -75,7 +91,10 @@ class Session(
     fun end() {
         role = null
         countdown?.cancel()
-        peers.keys.toList().forEach { transport.close(it, disconnectLine()) }
+        peers.forEach { (id, peer) ->
+            peer.watchdog?.cancel()
+            transport.close(id, disconnectLine())
+        }
         peers.clear()
         mutableView.value = SessionView()
     }
@@ -122,81 +141,121 @@ class Session(
         }
         mutableView.value = view.value.copy(countdownUntilMs = now() + seconds * 1000L)
         broadcast(listOf(Message(type = Kind.COUNTDOWN, seconds = seconds)))
-        countdown = scope.launch {
-            delay(seconds * 1000L)
-            mutableView.value = view.value.copy(countdownUntilMs = 0)
-            update { it.copy(playing = true, scrollOffset = if (it.scrollOffset >= 1) 0.0 else it.scrollOffset) }
-        }
+        countdown =
+            scope.launch {
+                delay(seconds * 1000L)
+                mutableView.value = view.value.copy(countdownUntilMs = 0)
+                update { it.copy(playing = true, scrollOffset = if (it.scrollOffset >= 1) 0.0 else it.scrollOffset) }
+            }
     }
 
     private fun event(event: LinkEvent) {
-        val localRole = role ?: return
+        val localRole = role
+        if (localRole == null) {
+            if (event is LinkEvent.Open) transport.close(event.peer)
+            return
+        }
         when (event) {
-            is LinkEvent.Open -> {
-                if (peers.size >= if (localRole == Role.HOST) 3 else 1) {
-                    transport.close(event.peer)
-                    return
-                }
-                peers[event.peer] = Peer(now())
-                send(event.peer, Message(type = Kind.HELLO, role = localRole, appVersion = "1.0", deviceName = name()))
-            }
+            is LinkEvent.Open -> open(event.peer, localRole)
             is LinkEvent.Closed -> {
-                peers.remove(event.peer)
+                peers.remove(event.peer)?.watchdog?.cancel()
                 publishPeers()
             }
-            is LinkEvent.Line -> {
-                val peer = peers[event.peer] ?: return
-                val message = Wire.decode(event.value) ?: return
-                if (peer.name == null && message.type != Kind.HELLO) return
-                peer.lastSeen = now()
-                when (message.type) {
-                    Kind.HELLO -> {
-                        if (message.role == null || message.role == localRole) {
-                            transport.close(event.peer)
-                            return
-                        }
-                        peer.name = message.deviceName?.take(80)?.ifBlank { event.peer } ?: event.peer
-                        publishPeers()
-                        if (localRole == Role.HOST) {
-                            val messages = view.value.script?.let(Wire::chunks).orEmpty() +
-                                Message(type = Kind.STATE, state = snapshot())
-                            transport.send(event.peer, messages.map(Wire::encode))
-                            val remaining = view.value.countdownUntilMs - now()
-                            if (remaining > 0) send(event.peer, Message(
-                                type = Kind.COUNTDOWN, seconds = ((remaining + 999) / 1000).toInt(),
-                            ))
-                        }
-                    }
-                    Kind.PING -> send(event.peer, Message(type = Kind.PONG, token = message.token))
-                    Kind.PONG -> message.token?.let { peer.oneWayMs = ((now() - it) / 2).coerceIn(0, 500) }
-                    Kind.DISCONNECT -> {
-                        if (localRole == Role.CLIENT) mutableView.value = view.value.copy(removedByHost = true)
-                        transport.close(event.peer)
-                    }
-                    else -> if (localRole == Role.CLIENT) applyRemote(message, peer)
-                }
-            }
+            is LinkEvent.Line -> receive(event, localRole)
         }
     }
 
-    private fun applyRemote(message: Message, peer: Peer) {
+    private fun open(
+        id: String,
+        localRole: Role,
+    ) {
+        if (peers.size >= if (localRole == Role.HOST) 3 else 1) {
+            transport.close(id, disconnectLine())
+            return
+        }
+        val peer = Peer(now())
+        peers[id] = peer
+        peer.watchdog = scope.launch { expireWhenSilent(id, peer) }
+        send(id, Message(type = Kind.HELLO, role = localRole, appVersion = "1.0", deviceName = name()))
+    }
+
+    private fun receive(
+        event: LinkEvent.Line,
+        localRole: Role,
+    ) {
+        val peer = peers[event.peer] ?: return
+        val message = Wire.decode(event.value) ?: return
+        if (peer.name == null && message.type != Kind.HELLO) return
+        peer.lastSeen = now()
+        when (message.type) {
+            Kind.HELLO -> hello(event.peer, peer, message, localRole)
+            Kind.PING -> send(event.peer, Message(type = Kind.PONG, token = message.token))
+            Kind.PONG -> message.token?.let { peer.oneWayMs = ((now() - it) / 2).coerceIn(0, 500) }
+            Kind.DISCONNECT -> {
+                if (localRole == Role.CLIENT) mutableView.value = view.value.copy(removedByHost = true)
+                transport.close(event.peer)
+            }
+            else -> if (localRole == Role.CLIENT) applyRemote(message, peer)
+        }
+    }
+
+    private fun hello(
+        id: String,
+        peer: Peer,
+        message: Message,
+        localRole: Role,
+    ) {
+        if (peer.name != null) return
+        if (message.role == null || message.role == localRole) {
+            transport.close(id)
+            return
+        }
+        peer.name = message.deviceName?.take(80)?.ifBlank { id } ?: id
+        publishPeers()
+        if (localRole == Role.HOST) sendSnapshot(id)
+    }
+
+    private fun sendSnapshot(id: String) {
+        val messages =
+            view.value.script
+                ?.let(Wire::chunks)
+                .orEmpty() +
+                Message(type = Kind.STATE, state = snapshot())
+        transport.send(id, messages.map(Wire::encode))
+        val remaining = view.value.countdownUntilMs - now()
+        if (remaining > 0) {
+            send(id, Message(type = Kind.COUNTDOWN, seconds = ((remaining + 999) / 1000).toInt()))
+        }
+    }
+
+    private fun applyRemote(
+        message: Message,
+        peer: Peer,
+    ) {
         val current = view.value
         when (message.type) {
-            Kind.SCRIPT -> message.script?.let(assembler::accept)?.let { script ->
-                mutableView.value = current.copy(script = script)
-            }
-            Kind.STATE -> message.state?.takeIf(Playback::valid)?.let {
-                mutableView.value = current.copy(
-                    motion = current.motion.sync(it, now(), peer.oneWayMs),
-                    countdownUntilMs = if (it.playing) 0 else current.countdownUntilMs,
-                )
-            }
-            Kind.SEEK -> message.scrollOffset?.takeIf { it in 0.0..1.0 }?.let {
-                mutableView.value = current.copy(motion = Motion(current.motion.state.copy(scrollOffset = it), now()))
-            }
-            Kind.COUNTDOWN -> message.seconds?.takeIf { it in 0..3 }?.let {
-                mutableView.value = current.copy(countdownUntilMs = if (it == 0) 0 else now() + it * 1000L)
-            }
+            Kind.SCRIPT ->
+                message.script?.let(assembler::accept)?.let { script ->
+                    if (current.script != script) peer.receivedState = false
+                    mutableView.value = current.copy(script = script)
+                }
+            Kind.STATE ->
+                message.state?.takeIf(Playback::valid)?.let {
+                    mutableView.value =
+                        current.copy(
+                            motion = current.motion.sync(it, now(), peer.oneWayMs, !peer.receivedState),
+                            countdownUntilMs = if (it.playing) 0 else current.countdownUntilMs,
+                        )
+                    peer.receivedState = true
+                }
+            Kind.SEEK ->
+                message.scrollOffset?.takeIf { it in 0.0..1.0 }?.let {
+                    mutableView.value = current.copy(motion = Motion(current.motion.state.copy(scrollOffset = it), now()))
+                }
+            Kind.COUNTDOWN ->
+                message.seconds?.takeIf { it in 0..3 }?.let {
+                    mutableView.value = current.copy(countdownUntilMs = if (it == 0) 0 else now() + it * 1000L)
+                }
             else -> Unit
         }
     }
@@ -205,9 +264,7 @@ class Session(
         val time = now()
         peers.toMap().forEach { (id, peer) ->
             if (time - peer.lastSeen >= TIMEOUT_MS) {
-                transport.close(id)
-                peers.remove(id)
-                publishPeers()
+                removeSilentPeer(id)
             } else if (peer.name != null) {
                 send(id, Message(type = Kind.PING, token = time))
             }
@@ -222,6 +279,26 @@ class Session(
         }
     }
 
+    private suspend fun expireWhenSilent(
+        id: String,
+        peer: Peer,
+    ) {
+        while (peers[id] === peer) {
+            val remaining = TIMEOUT_MS - (now() - peer.lastSeen)
+            if (remaining <= 0) {
+                removeSilentPeer(id)
+                return
+            }
+            delay(remaining)
+        }
+    }
+
+    private fun removeSilentPeer(id: String) {
+        peers.remove(id)?.watchdog?.cancel()
+        transport.close(id)
+        publishPeers()
+    }
+
     private fun snapshot(): Playback {
         val motion = view.value.motion
         val time = now()
@@ -229,18 +306,27 @@ class Session(
     }
 
     private fun publishPeers() {
-        mutableView.value = view.value.copy(peers = peers.mapNotNull { (id, peer) ->
-            peer.name?.let { id to it }
-        }.toMap())
+        mutableView.value =
+            view.value.copy(
+                peers =
+                    peers
+                        .mapNotNull { (id, peer) ->
+                            peer.name?.let { id to it }
+                        }.toMap(),
+            )
     }
 
     private fun disconnectLine() = Wire.encode(Message(type = Kind.DISCONNECT))
 
-    private fun send(peer: String, message: Message) = transport.send(peer, listOf(Wire.encode(message)))
+    private fun send(
+        peer: String,
+        message: Message,
+    ) = transport.send(peer, listOf(Wire.encode(message)))
 
     private fun broadcast(messages: List<Message>) {
         val lines = messages.map(Wire::encode)
-        view.value.peers.keys.forEach { transport.send(it, lines) }
+        view.value.peers.keys
+            .forEach { transport.send(it, lines) }
     }
 }
 
@@ -253,5 +339,7 @@ class RetryDelay {
         return delayMs
     }
 
-    fun connected() { nextMs = 1_000 }
+    fun connected() {
+        nextMs = 1_000
+    }
 }

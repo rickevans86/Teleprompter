@@ -5,81 +5,63 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.telepromptor.data.SavedScript
-import dev.telepromptor.data.Scripts
 import dev.telepromptor.protocol.MAX_SCRIPT_BYTES
 import java.util.UUID
-import javax.inject.Inject
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.launch
-
-@HiltViewModel
-class ScriptEditorModel @Inject constructor(val scripts: Scripts) : ViewModel()
 
 @Composable
 fun ScriptEditor(
     back: () -> Unit,
     live: ((SavedScript) -> Unit)? = null,
-    model: ScriptEditorModel = viewModel(),
+    model: ScriptEditorModel = hiltViewModel(),
 ) {
-    val saved by model.scripts.observe().collectAsStateWithLifecycle(emptyList())
-    val scope = rememberCoroutineScope()
-    var id by rememberSaveable { mutableStateOf(UUID.randomUUID().toString()) }
-    var title by rememberSaveable { mutableStateOf("") }
-    var body by rememberSaveable { mutableStateOf("") }
-    var status by rememberSaveable { mutableStateOf("") }
+    val saved by model.saved.collectAsStateWithLifecycle(emptyList())
     var pendingDelete by remember { mutableStateOf<SavedScript?>(null) }
-    val draft = SavedScript(id, title.trim().ifBlank { "Untitled script" }, body)
-    val valid = title.length <= 200 && body.isNotBlank() &&
-        remember(body) { body.encodeToByteArray().size <= MAX_SCRIPT_BYTES }
+    val draft = SavedScript(model.id, model.title.trim().ifBlank { "Untitled script" }, model.body)
+    val valid =
+        model.title.length <= 200 &&
+            model.body.isNotBlank() &&
+            remember(model.body) { model.body.encodeToByteArray().size <= MAX_SCRIPT_BYTES }
     Column(
-        Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp),
+        Modifier
+            .fillMaxSize()
+            .safeDrawingPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         TextButton(back) { Text("Back") }
         Text("Script editor", style = MaterialTheme.typography.headlineMedium)
-        OutlinedTextField(title, { title = it }, Modifier.fillMaxWidth(), label = { Text("Title") }, singleLine = true)
-        OutlinedTextField(body, { body = it }, Modifier.fillMaxWidth(), label = { Text("Script") }, minLines = 7)
+        OutlinedTextField(model.title, { model.title = it }, Modifier.fillMaxWidth(), label = { Text("Title") }, singleLine = true)
+        OutlinedTextField(model.body, { model.body = it }, Modifier.fillMaxWidth(), label = { Text("Script") }, minLines = 7)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = {
-                scope.launch {
-                    try {
-                        model.scripts.save(draft)
-                        status = "Script saved"
-                    } catch (error: CancellationException) {
-                        throw error
-                    } catch (_: Exception) {
-                        status = "Could not save the script"
-                    }
-                }
+                model.save(draft)
             }, enabled = valid) { Text("Save") }
             OutlinedButton(onClick = {
-                id = UUID.randomUUID().toString()
-                title = ""
-                body = ""
-                status = ""
+                model.id = UUID.randomUUID().toString()
+                model.title = ""
+                model.body = ""
+                model.status = ""
             }) { Text("New") }
             if (live != null) Button({ live(draft) }, enabled = valid) { Text("Go live") }
         }
-        if (title.length > 200) Text("Use 200 characters or fewer for the title.")
-        if (body.isNotBlank() && !valid && title.length <= 200) Text("Script exceeds the 2 MB limit.")
-        if (status.isNotBlank()) Text(status)
+        if (model.title.length > 200) Text("Use 200 characters or fewer for the title.")
+        if (model.body.isNotBlank() && !valid && model.title.length <= 200) Text("Script exceeds the 2 MB limit.")
+        if (model.status.isNotBlank()) Text(model.status)
         Text("Saved scripts", style = MaterialTheme.typography.titleLarge)
         if (saved.isEmpty()) Text("No saved scripts")
         saved.forEach { script ->
             Row {
                 TextButton(onClick = {
-                    id = script.id
-                    title = script.title
-                    body = script.text
-                    status = ""
+                    model.id = script.id
+                    model.title = script.title
+                    model.body = script.text
+                    model.status = ""
                 }, modifier = Modifier.weight(1f)) { Text(script.title) }
                 TextButton({ pendingDelete = script }) { Text("Delete") }
             }
@@ -93,17 +75,7 @@ fun ScriptEditor(
             confirmButton = {
                 TextButton({
                     pendingDelete = null
-                    scope.launch {
-                        try {
-                            model.scripts.delete(script)
-                            if (id == script.id) id = UUID.randomUUID().toString()
-                            status = "Script deleted"
-                        } catch (error: CancellationException) {
-                            throw error
-                        } catch (_: Exception) {
-                            status = "Could not delete the script"
-                        }
-                    }
+                    model.delete(script)
                 }) { Text("Delete") }
             },
             dismissButton = { TextButton({ pendingDelete = null }) { Text("Cancel") } },

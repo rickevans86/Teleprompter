@@ -43,31 +43,45 @@ fun BluetoothAccess(
 ) {
     val context = LocalContext.current
     val permissions = remember(host) { bluetoothPermissions(host) }
-    fun granted() = permissions.all {
-        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-    }
-    var allowed by remember { mutableStateOf(granted()) }
-    var enabled by remember { mutableStateOf(adapter?.isEnabled == true) }
-    var denied by remember { mutableStateOf(false) }
-    val request = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        allowed = granted()
-        denied = !allowed
-    }
-    val enable = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        enabled = adapter?.isEnabled == true
-    }
-    val settings = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        allowed = granted()
-        enabled = adapter?.isEnabled == true
-    }
-    DisposableEffect(context, adapter) {
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                enabled = adapter?.isEnabled == true
-            }
+
+    fun granted() =
+        permissions.all {
+            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
         }
+
+    fun radioEnabled() = runCatching { adapter?.isEnabled == true }.getOrDefault(false)
+    var allowed by remember { mutableStateOf(granted()) }
+    var enabled by remember { mutableStateOf(radioEnabled()) }
+    var denied by remember { mutableStateOf(false) }
+    val request =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+            allowed = granted()
+            denied = !allowed
+            enabled = radioEnabled()
+        }
+    val enable =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            enabled = radioEnabled()
+        }
+    val settings =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            allowed = granted()
+            enabled = radioEnabled()
+        }
+    DisposableEffect(context, adapter) {
+        val receiver =
+            object : BroadcastReceiver() {
+                override fun onReceive(
+                    context: Context,
+                    intent: Intent,
+                ) {
+                    enabled = radioEnabled()
+                }
+            }
         ContextCompat.registerReceiver(
-            context, receiver, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED),
+            context,
+            receiver,
+            IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED),
             ContextCompat.RECEIVER_EXPORTED,
         )
         onDispose { context.unregisterReceiver(receiver) }
@@ -86,15 +100,21 @@ fun BluetoothAccess(
             adapter == null -> Text("This device does not support Bluetooth Classic.")
             !allowed -> {
                 Text(
-                    if (host) "Allow Nearby devices so clients can find and connect to this host."
-                    else if (Build.VERSION.SDK_INT >= 31) "Allow Nearby devices to find and connect to a host."
-                    else "Android requires Location permission for Bluetooth discovery on this version. Telepromptor does not request your coordinates.",
+                    if (host) {
+                        "Allow Nearby devices so clients can find and connect to this host."
+                    } else if (Build.VERSION.SDK_INT >= 31) {
+                        "Allow Nearby devices to find and connect to a host."
+                    } else {
+                        "Android requires Location permission for Bluetooth discovery on this version. Telepromptor does not request your coordinates."
+                    },
                 )
                 if (denied) Text("Permission was denied. You can grant access in Android Settings.")
                 Button({ request.launch(permissions) }) { Text("Allow access") }
-                if (denied) OutlinedButton({
-                    settings.launch(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName)))
-                }) { Text("Open settings") }
+                if (denied) {
+                    OutlinedButton({
+                        settings.launch(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName)))
+                    }) { Text("Open settings") }
+                }
             }
             else -> {
                 Text("Turn on Bluetooth to use this mode.")

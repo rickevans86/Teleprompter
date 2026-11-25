@@ -11,7 +11,11 @@ import kotlinx.coroutines.flow.Flow
 import javax.inject.Singleton
 
 @Entity
-data class SavedScript(@PrimaryKey val id: String, val title: String, val text: String)
+data class SavedScript(
+    @PrimaryKey val id: String,
+    val title: String,
+    val text: String,
+)
 
 @Dao
 interface Scripts {
@@ -35,8 +39,9 @@ abstract class ScriptDatabase : RoomDatabase() {
 object ScriptModule {
     @Provides
     @Singleton
-    fun database(@ApplicationContext context: Context): ScriptDatabase =
-        Room.databaseBuilder(context, ScriptDatabase::class.java, "scripts.db").build()
+    fun database(
+        @ApplicationContext context: Context,
+    ): ScriptDatabase = Room.databaseBuilder(context, ScriptDatabase::class.java, "scripts.db").build()
 
     @Provides
     fun scripts(database: ScriptDatabase): Scripts = database.scripts()
