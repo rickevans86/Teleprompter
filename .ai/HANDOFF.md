@@ -2,18 +2,18 @@
 
 **Agent** — Claude
 
-**Completed** — Issue #3: CI now installs the Android SDK on every runner (`claude/3-ci-sdk-setup`, `4b5665f`). Issue #4: the app checks the latest GitHub release at startup and shows a dismissible banner when a newer version exists (`claude/4-startup-update-check`, stacked on #3).
+**Completed** — Issue #7: a manual `Release` workflow and env-driven signing config that build `Telepromptor.apk` signed with the key in repository secrets (`claude/7-signed-release`, stacked on #3 and #4). Earlier this session: issue #3 (CI SDK setup) and issue #4 (startup update check).
 
-**In progress** — Nothing. Independent review of #3 and #4 is not yet assigned; Claude authored both and cannot review them. Issue #1 review is also still open.
+**In progress** — Nothing. No independent reviewer is named for #1, #3, #4 or #7. Claude authored #3, #4 and #7 and cannot review them.
 
-**Branch/commit** — `claude/4-startup-update-check` (includes #3's commit). PRs are linked from issues #3 and #4. Neither is merged.
+**Branch/commit** — `claude/7-signed-release`, which includes the commits for #3 and #4. PRs #5, #6 and the one linked from issue #7 are open and not merged.
 
-**Tests** — CI run 45613979770 passed: assembleDebug, JVM unit tests including the new `UpdateCheckerTest`, androidTest APK assembly, and emulator UI tests. ktlint and detekt: Not run, because the workspace has no Android SDK and CI does not run them. The banner itself and a real newer-release check: Not run on a device.
+**Tests** — Release run 45715101100 succeeded: secrets check, signed release build, `apksigner` verification, and the certificate fingerprint matched the generated keystore. The CI debug build and emulator tests for the final commit are recorded on the PR. Attaching to a release tag: Not run, because `workflow_dispatch` is only available once the workflow is on `main`. Installing the signed APK on a phone: Not run. ktlint and detekt: Not run, because the workspace has no Android SDK and CI does not run them.
 
-**Blockers** — Rick must merge #3 for `main` CI to pass on the self-hosted runner and name an independent reviewer. The published v1.1.0 APK is debug-signed. A later release signed with a different key needs an uninstall first.
+**Blockers** — Rick must merge PRs in order (#5, #6, then #7's PR) and name an independent reviewer. The published v1.1.0 is debug-signed, so the first release signed with this key needs an uninstall of the old version.
 
-**Next action** — Rick names a reviewer (ChatGPT or Codex) for #3 and #4 and merges #3, then #4. To test the banner end to end, publish a release with a higher `versionName`; bump `versionName` and `versionCode` in `app/build.gradle.kts` for that release.
+**Next action** — After merging, bump `versionCode` and `versionName`, create the release tag, then run Actions → Release → Run workflow with that tag. Install it on a phone and check the update banner. Rick may rotate the keystore before relying on it, since it was generated in an AI session.
 
 **Shared records updated** — Yes
 
-**Remote synchronization** — Confirmed against `origin/main` at `835af38` when the branches were created.
+**Remote synchronization** — Confirmed against `origin/main` at `835af38`. PRs #5 and #6 were open and unmerged at the start of this work.

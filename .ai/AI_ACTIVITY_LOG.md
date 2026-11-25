@@ -23,3 +23,12 @@
 - ktlint and detekt: Not run. This workspace has no Android SDK, and CI does not run them. No other agent's work overlapped.
 
 [Issue #3](https://github.com/rickevans86/Teleprompter/issues/3) · [Issue #4](https://github.com/rickevans86/Teleprompter/issues/4)
+
+## 2026-11-26 · Claude · Issue #7
+
+- Rick asked Claude to generate the release keystore. Claude generated a PKCS12 keystore in its sandbox, sent it to Rick as files, and securely deleted its copies. Claude cannot write repository secrets (the Actions secrets API is blocked for its session), so Rick added `RELEASE_KEYSTORE_B64`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD` himself. The key and passwords passed through the chat.
+- Added `.github/workflows/release.yml` and an env-driven release signing config in `app/build.gradle.kts` (branch `claude/7-signed-release`, stacked on #3 and #4).
+- Verified with a branch run (Release run 45715101100): it succeeded, `apksigner` verified the APK, and its certificate SHA-256 `02c07fb525ec627739518433aafeb45b8b23392ab6f3f902962be04b7cfe625e` matches the generated keystore. The release-attach step was skipped (no tag given), so attaching to a release is Not run. A temporary push trigger used for this was removed afterwards, so `workflow_dispatch` can only be run once the workflow is on `main`.
+- No release was published or changed by Claude in this issue. v1.1.0 still carries the debug-signed APK.
+
+[Issue #7](https://github.com/rickevans86/Teleprompter/issues/7)

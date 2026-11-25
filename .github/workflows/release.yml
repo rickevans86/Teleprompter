@@ -8,9 +8,6 @@ on:
           Leave empty to only build and keep the APK as a workflow artifact.
         required: false
         type: string
-  # TEMPORARY: lets issue #7 verify this workflow before it reaches main. Removed before the PR is final.
-  push:
-    branches: [claude/7-signed-release]
 
 jobs:
   release:

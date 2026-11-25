@@ -21,7 +21,17 @@ When the app starts it checks the latest GitHub release and shows an **Update av
 
 Earlier debug builds use a separate signing key. Save a copy of each script before removing a debug build to install the signed release.
 
-For future releases, increment `versionCode`, sign the release APK with the original release key, and upload it to GitHub Releases as `Telepromptor.apk`. The update button uses that filename.
+## Make a signed release
+
+Releases are built and signed by the **Release** workflow, using a key kept in repository secrets.
+
+1. Increment `versionCode` and `versionName` in `app/build.gradle.kts`, merge to `main`, and create the GitHub release (a draft is fine) with a tag such as `v1.2.0`.
+2. In GitHub, open **Actions → Release → Run workflow**, choose `main`, and enter the tag to attach the APK to it. Leave the tag empty to build only and download the `telepromptor-release` workflow artifact.
+3. The workflow builds `:app:assembleRelease`, verifies the signature with `apksigner`, names the file `Telepromptor.apk` and uploads it, replacing an existing file of that name on the release. The update button and the startup check use that filename.
+
+The workflow needs four repository secrets: `RELEASE_KEYSTORE_B64` (the keystore, base64 encoded), `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD`. It stops early and names any that are missing. Keep a separate backup of the keystore and its passwords. If the key is lost, new releases cannot update installed copies.
+
+Local builds and pull requests do not use the secrets. Set `RELEASE_KEYSTORE_PATH` and the three other variables to sign a release build on your own machine. Releases before the first one built by this workflow are signed with the debug key, so the first signed release needs the old version removed first.
 
 ## CI runner
 
