@@ -14,6 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.telepromptor.data.SavedScript
 import dev.telepromptor.data.Scripts
+import dev.telepromptor.protocol.MAX_SCRIPT_BYTES
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -36,6 +37,8 @@ fun ScriptEditor(
     var status by rememberSaveable { mutableStateOf("") }
     var pendingDelete by remember { mutableStateOf<SavedScript?>(null) }
     val draft = SavedScript(id, title.trim().ifBlank { "Untitled script" }, body)
+    val valid = title.length <= 200 && body.isNotBlank() &&
+        remember(body) { body.encodeToByteArray().size <= MAX_SCRIPT_BYTES }
     Column(
         Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -56,15 +59,17 @@ fun ScriptEditor(
                         status = "Could not save the script"
                     }
                 }
-            }, enabled = body.isNotBlank()) { Text("Save") }
+            }, enabled = valid) { Text("Save") }
             OutlinedButton(onClick = {
                 id = UUID.randomUUID().toString()
                 title = ""
                 body = ""
                 status = ""
             }) { Text("New") }
-            if (live != null) Button({ live(draft) }, enabled = body.isNotBlank()) { Text("Go live") }
+            if (live != null) Button({ live(draft) }, enabled = valid) { Text("Go live") }
         }
+        if (title.length > 200) Text("Use 200 characters or fewer for the title.")
+        if (body.isNotBlank() && !valid && title.length <= 200) Text("Script exceeds the 2 MB limit.")
         if (status.isNotBlank()) Text(status)
         Text("Saved scripts", style = MaterialTheme.typography.titleLarge)
         if (saved.isEmpty()) Text("No saved scripts")

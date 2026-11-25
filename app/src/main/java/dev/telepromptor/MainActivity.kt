@@ -12,11 +12,16 @@ import dev.telepromptor.ui.home.HomeScreen
 import dev.telepromptor.ui.client.ClientRoute
 import dev.telepromptor.bluetooth.LiveSession
 import javax.inject.Inject
-import dev.telepromptor.ui.host.ScriptEditor
+import dev.telepromptor.ui.host.HostRoute
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject lateinit var live: LiveSession
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if (live.handleVolumeKey(event)) return true
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -32,7 +37,7 @@ fun TelepromptorNavigation() {
     val nav = rememberNavController()
     NavHost(navController = nav, startDestination = "home") {
         composable("home") { HomeScreen({ nav.navigate("host") }, { nav.navigate("client") }) }
-        composable("host") { ScriptEditor(back = { nav.popBackStack() }) }
+        composable("host") { HostRoute(live, { nav.popBackStack() }) }
         composable("client") { ClientRoute(live) { nav.popBackStack() } }
     }
 }
