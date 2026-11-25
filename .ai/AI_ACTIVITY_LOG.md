@@ -13,3 +13,13 @@
 
 - Applied Rick’s direct-to-main instruction to the repository protocol and updated the shared records. Preserved the setup history from PR #2.
 - Rebuilt the task board from current GitHub Issues. Android tests were not rerun for these documentation changes.
+
+## 2026-11-25 · Claude · Issues #3 and #4
+
+- Diagnosed the failing Android CI from job logs. The self-hosted runner lacked `unzip` (fixed by Rick) and `setup-android` then failed requesting the removed `tools` package. GitHub-hosted runners had no `sdkmanager` because `setup-android` only ran on self-hosted runners.
+- Issue #3: ran `setup-android` on every runner with `packages: platform-tools` (commit `4b5665f` on `claude/3-ci-sdk-setup`). The branch build and UI tests passed on re-run. The first attempt failed resolving the Kotlin Compose plugin and passed unchanged on retry, which suggests a transient network error.
+- Issue #4: added a startup update check (commit `df79803` on `claude/4-startup-update-check`, stacked on #3). CI run 45613979770 passed: `build` (assembleDebug, unit tests including the new `UpdateCheckerTest`, androidTest assembly) and `ui-tests` (emulator).
+- Rick attached the CI debug APK to the v1.1.0 draft as `Telepromptor.apk` and published it. Claude could not download the artifact from its sandbox and did not attach or publish the release.
+- ktlint and detekt: Not run. This workspace has no Android SDK, and CI does not run them. No other agent's work overlapped.
+
+[Issue #3](https://github.com/rickevans86/Teleprompter/issues/3) · [Issue #4](https://github.com/rickevans86/Teleprompter/issues/4)
