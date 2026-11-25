@@ -9,15 +9,19 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.*
 import dagger.hilt.android.AndroidEntryPoint
 import dev.telepromptor.ui.home.HomeScreen
+import dev.telepromptor.ui.client.ClientRoute
+import dev.telepromptor.bluetooth.LiveSession
+import javax.inject.Inject
 import dev.telepromptor.ui.host.ScriptEditor
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @Inject lateinit var live: LiveSession
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
-                Surface { TelepromptorNavigation() }
+                Surface { TelepromptorNavigation(live) }
             }
         }
     }
@@ -29,6 +33,6 @@ fun TelepromptorNavigation() {
     NavHost(navController = nav, startDestination = "home") {
         composable("home") { HomeScreen({ nav.navigate("host") }, { nav.navigate("client") }) }
         composable("host") { ScriptEditor(back = { nav.popBackStack() }) }
-        composable("client") { Button(onClick = { nav.popBackStack() }) { Text("Back") } }
+        composable("client") { ClientRoute(live) { nav.popBackStack() } }
     }
 }
