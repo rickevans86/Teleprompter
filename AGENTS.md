@@ -11,7 +11,7 @@
 
 ## Authority and roles
 
-GitHub is the single source of truth for this collaboration among ChatGPT, Claude, and ChatGPT Codex. Rick assigns tasks by labeling Issues or directly in a session. Only Rick merges into main. Rick names the reviewer, and the agent who authored the change cannot review it.
+GitHub is the single source of truth for this collaboration among ChatGPT, Claude, and ChatGPT Codex. Rick assigns tasks by labeling Issues or directly in a session. On Rick’s instruction, authorized work is committed and pushed directly to `main`. Rick names the independent reviewer. The agent who authored the change cannot review it.
 
 | Agent | Default responsibilities |
 | --- | --- |
@@ -23,7 +23,7 @@ Any agent may perform an authorized task it has the tools to complete. Identify 
 
 ## Shared memory
 
-GitHub Issues are authoritative for assignments and status. Commits and pull requests are authoritative for implemented work. When a shared file conflicts with GitHub evidence, investigate and correct the file.
+GitHub Issues are authoritative for assignments and status. Commits on `main` are authoritative for implemented work. Existing pull requests record earlier work. When a shared file conflicts with GitHub evidence, investigate and correct the file.
 
 | File | Purpose |
 | --- | --- |
@@ -34,7 +34,7 @@ GitHub Issues are authoritative for assignments and status. Commits and pull req
 | `.ai/DECISIONS.md` | Architectural decisions |
 | `.ai/FILE_OWNERSHIP.md` | Planned file changes for work in progress |
 
-Record planned files when claiming a task and remove them in the PR that completes it. Refresh the rest of the shared records as the last step before opening a PR, after bringing the branch up to date with main. Preserve entries from other agents if the shared records conflict. The activity log and decisions are append-only. Add one dated entry at the end and preserve earlier entries and their order. Rebuild the task board from current GitHub Issues each time. Replace the handoff with the latest one and keep its history in the activity log.
+Record planned files when claiming a task and remove them in the commit that completes it. Refresh the shared records as the last step before committing and pushing, after synchronizing with the latest `main`. Preserve entries from other agents if the shared records conflict. The activity log and decisions are append-only. Add one dated entry at the end and preserve earlier entries and their order. Rebuild the task board from current GitHub Issues each time. Replace the handoff with the latest one and keep its history in the activity log.
 
 ## Session start
 
@@ -49,18 +49,17 @@ Use current repository evidence in each session.
 
 ## Tasks and ownership
 
-Every task has a GitHub Issue with a task ID, description, acceptance criteria, responsible AI, status, dependencies, and related branch and PR. Use `ai:chatgpt`, `ai:claude`, `ai:codex`, `status:in-progress`, `status:blocked`, and `status:review`. An AI label records the agent regardless of which GitHub account applies it.
+Every task has a GitHub Issue with a task ID, description, acceptance criteria, responsible AI, status, dependencies, and related commits on `main`. Use `ai:chatgpt`, `ai:claude`, `ai:codex`, `status:in-progress`, `status:blocked`, and `status:review`. An AI label records the agent regardless of which GitHub account applies it.
 
 Work only on tasks Rick assigns. Before claiming an Issue, check for another agent's label, a file ownership entry, or an open PR affecting the same files. If you find another claim or overlap, stop and tell Rick. Apply your AI label and `status:in-progress`, leave a claim comment with the planned files, and re-read the Issue to confirm there is no competing claim. Propose a separate Issue for out-of-scope work. Ask Rick if ownership is ambiguous.
 
 ## Development workflow
 
-1. Claim the assigned Issue and branch from current main. Use `<agent>/<issue-number>-<short-name>` and keep one Issue per branch.
+1. Claim the assigned Issue and fast-forward your local `main` to `origin/main`. Check other agents’ file claims before editing.
 2. Implement only the assigned changes. Run the project test and lint commands and verify the diff for scope and correctness.
-3. Commit with the Issue and AI identity.
-4. Bring the branch up to date with main, refresh the shared records, and open one reviewable PR.
-5. Move the Issue to `status:review`. Request review from the independent reviewer Rick names. If none is named, ask Rick to name one.
-6. Leave merging to Rick. Preserve history, avoid force-pushing shared branches, and only push to another agent's branch at Rick's request.
+3. Fetch `main` again. Integrate any intervening work without dropping another agent’s changes. Stop and coordinate with Rick if the changes overlap.
+4. Update the shared records, commit with the Issue and AI identity, and push directly to `main`. Use a regular push. If another push moved `main`, fetch and synchronize again.
+5. Link the commit from the Issue and move it to `status:review`. Request review on the Issue from the independent reviewer Rick names. If none is named, ask Rick to name one.
 
 An implementation check is part of developing the change. Independent review is performed by someone other than the author.
 
@@ -76,28 +75,28 @@ AI: Codex
 
 Every development report identifies the AI, Issue, work performed, files changed, tests, commit SHA or PR, and outstanding issues. Write “Not run” with the reason for any omitted test. Claim only work and remote changes that you verified. Attribute work only to the agent who performed it.
 
-At the end of the session, put the latest handoff in `.ai/HANDOFF.md` and include it in the PR description. Use these fields.
+At the end of the session, put the latest handoff in `.ai/HANDOFF.md` and link to it and the commit from the Issue. Use these fields.
 
 - **Agent**
 - **Completed**
 - **In progress**
-- **Branch/PR**
+- **Branch/commit**
 - **Tests**
 - **Blockers**
 - **Next action**
 - **Shared records updated**
 - **Remote synchronization**
 
-Use `Yes` or `No` for shared records and `Confirmed` or `Unavailable` for remote synchronization. Record a PR as pending when it has not yet been opened.
+Use `Yes` or `No` for shared records and `Confirmed` or `Unavailable` for remote synchronization. If the commit is pending, record `main` and the linked Issue in the handoff, then link the verified commit from the Issue after pushing.
 
 ## Operating modes
 
-**Codex mode** — Follow this file. Synchronize with GitHub, check Issues and open PRs, and carry out the assigned development workflow. Run the relevant tests and lint checks, commit and open the PR, and record the shared documentation, attribution, and handoff.
+**Codex mode** — Follow this file. Synchronize with GitHub, check Issues and open PRs, and carry out the assigned development workflow. Run the relevant tests and lint checks, record the shared documentation, attribution, and handoff, and commit and push the assigned work directly to `main`.
 
 **Website mode** — If direct repository access is unavailable, say so at the start. Ask Rick for the minimum relevant files, Issue text, or shared records. State that your output has not been checked against the current repository. Provide complete files or a patch, a commit message, an activity entry, and handoff text for Rick or Codex to apply. Report remote writes only after they succeed.
 
 ## Bootstrap and safety
 
-If the shared records are absent, set them up before feature work when Rick authorizes it. Fill in project details from the repository and tell Rick about anything undetermined. Create the agent and status labels when permission allows, or list the missing labels for Rick. Put the setup in one documentation-only PR and preserve all existing work. Start feature work only after coordination is established.
+If the shared records are absent, set them up before feature work when Rick authorizes it. Fill in project details from the repository and tell Rick about anything undetermined. Create the agent and status labels when permission allows, or list the missing labels for Rick. Keep the setup documentation-only on `main` and preserve all existing work. Start feature work only after coordination is established.
 
 Keep credentials and secrets out of commits, Issues, PRs, and logs. If you find a committed secret, tell Rick immediately without repeating the value.

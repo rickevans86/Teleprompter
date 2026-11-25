@@ -8,3 +8,7 @@ Recorded by Codex from main while preparing [issue #1](https://github.com/rickev
 - Room stores scripts on the device. Host voice scrolling uses local audio activity and shares playback state over the existing Bluetooth link.
 - The update setting opens the latest GitHub APK download in a browser. Android handles installation confirmation, and release upgrades use the same signing key.
 - GitHub Issues, commits, and PRs are authoritative. Shared records summarize them under Rick's three-AI collaboration protocol.
+
+## 2026-11-25 · Direct development on main
+
+Rick directed that all work and shared records go directly to `main`. Issue assignment, AI attribution, file claims, and independent review still apply. Codex recorded this decision under issue #1.

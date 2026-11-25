@@ -8,3 +8,8 @@
 - Submitted the setup changes for Rick to assign an independent reviewer. The branch is `codex/1-collaboration-protocol`.
 
 [Issue #1](https://github.com/rickevans86/Teleprompter/issues/1)
+
+## 2026-11-25 · Codex · Issue #1
+
+- Applied Rick’s direct-to-main instruction to the repository protocol and updated the shared records. Preserved the setup history from PR #2.
+- Rebuilt the task board from current GitHub Issues. Android tests were not rerun for these documentation changes.
