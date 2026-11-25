@@ -17,6 +17,8 @@ The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. Run Com
 
 Download `Telepromptor.apk` from the [latest release](https://github.com/rickevans86/Teleprompter/releases/latest). In the app, open **Settings → Update app** to get the latest signed APK in your browser. Sign in to GitHub if prompted and open the download to confirm installation in Android. Updates between signed releases keep your local scripts.
 
+When the app starts it checks the latest GitHub release and shows an **Update available** banner on the home screen if a newer version exists. Tap **Download** to fetch the APK or **Later** to dismiss it for that session. The check is silent when the phone is offline or GitHub cannot be reached, and it is the only network use in the app. Teleprompting itself still works offline.
+
 Earlier debug builds use a separate signing key. Save a copy of each script before removing a debug build to install the signed release.
 
 For future releases, increment `versionCode`, sign the release APK with the original release key, and upload it to GitHub Releases as `Telepromptor.apk`. The update button uses that filename.
