@@ -68,6 +68,10 @@ class Session(
         role = mode
     }
 
+    fun endIf(mode: Role) {
+        if (role == mode) end()
+    }
+
     fun end() {
         role = null
         countdown?.cancel()
