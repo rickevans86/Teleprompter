@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.*
 import dagger.hilt.android.AndroidEntryPoint
 import dev.telepromptor.ui.home.HomeScreen
+import dev.telepromptor.ui.host.ScriptEditor
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -27,7 +28,7 @@ fun TelepromptorNavigation() {
     val nav = rememberNavController()
     NavHost(navController = nav, startDestination = "home") {
         composable("home") { HomeScreen({ nav.navigate("host") }, { nav.navigate("client") }) }
-        composable("host") { Button(onClick = { nav.popBackStack() }) { Text("Back") } }
+        composable("host") { ScriptEditor(back = { nav.popBackStack() }) }
         composable("client") { Button(onClick = { nav.popBackStack() }) { Text("Back") } }
     }
 }

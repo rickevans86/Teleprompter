@@ -32,5 +32,7 @@ dependencies {
     implementation(libs.navigation)
     implementation(libs.lifecycle)
     implementation(libs.hilt.android)
+    implementation(libs.room.runtime)
+    kapt(libs.room.compiler)
     kapt(libs.hilt.compiler)
 }
