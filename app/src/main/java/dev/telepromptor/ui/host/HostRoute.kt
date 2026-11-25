@@ -52,8 +52,11 @@ fun HostRoute(
     }
     DisposableEffect(live, section, shortcut, useCountdown) {
         live.volumeShortcut = if (section == "panel") shortcut else VolumeShortcut.OFF
-        live.volumeCountdown = useCountdown
-        onDispose { live.volumeShortcut = VolumeShortcut.OFF }
+        live.onVolumePlayback = { model.togglePlayback(useCountdown) }
+        onDispose {
+            live.volumeShortcut = VolumeShortcut.OFF
+            live.onVolumePlayback = null
+        }
     }
 
     when (section) {
@@ -71,13 +74,18 @@ fun HostRoute(
                 shortcut = shortcut,
                 back = { section = "editor" },
                 connect = { section = "connect" },
-                playPause = { live.togglePlayback(useCountdown) },
+                playPause = { model.togglePlayback(useCountdown) },
                 restart = { model.restart(useCountdown) },
                 seek = session::seek,
                 update = session::update,
                 onCountdown = { useCountdown = it },
                 onShortcut = { shortcut = it },
                 onTravel = { speedSpan = it },
+                voiceControls = { VoiceControls(model, enabled = view.script != null) },
+                voiceActive =
+                    model.voiceStatus
+                        .collectAsStateWithLifecycle()
+                        .value.active,
             )
         }
         else ->

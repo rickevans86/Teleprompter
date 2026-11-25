@@ -32,6 +32,8 @@ fun HostPanel(
     onCountdown: (Boolean) -> Unit,
     onShortcut: (VolumeShortcut) -> Unit,
     onTravel: (Int) -> Unit,
+    voiceControls: @Composable () -> Unit = {},
+    voiceActive: Boolean = false,
 ) {
     val state = view.motion.state
     val enabled = view.script != null
@@ -54,6 +56,7 @@ fun HostPanel(
             Button(playPause, enabled = enabled) {
                 Text(
                     when {
+                        voiceActive -> "Stop voice"
                         view.countdownUntilMs != 0L -> "Cancel countdown"
                         state.playing -> "Pause"
                         else -> "Play"
@@ -62,6 +65,7 @@ fun HostPanel(
             }
             OutlinedButton(restart, enabled = enabled) { Text("Restart") }
         }
+        voiceControls()
         PositionControl(view, enabled, seek)
         Text("Scroll speed · ${state.speedPxPerSec.roundToInt()} px/s")
         Row(verticalAlignment = Alignment.CenterVertically) {

@@ -23,10 +23,17 @@ The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. Run Com
 
 The host foreground notification can stop hosting. The live panel can preview a script before Bluetooth hosting starts.
 
+## Voice scrolling
+
+In the host’s live panel, tap **Start voice scrolling** and grant microphone access. The script moves at the selected speed while you speak and pauses after about half a second of quiet. Connected clients follow the same playback. Tap **Stop voice** to pause and turn off the microphone. Use **Play** or **Restart** for manual playback and its optional countdown.
+
+Voice scrolling listens only while the host’s live panel is in the foreground. It stops when you leave the panel or lock the phone. The microphone audio is processed on the host and is never saved or sent to clients. The detector reacts to sound level and sustained background noise can trigger it. It works best close to the host microphone in a quiet room.
+
 ## Android permissions
 
 - **Android 12 and newer** requests Nearby devices access to connect, scan on the client, and make the host discoverable.
 - **Android 8 through 11** declares Bluetooth and Bluetooth Admin. Client discovery also needs Android’s Location permission and may require the system Location setting to be on. The app never reads location coordinates.
+- **Microphone** is requested only when you start voice scrolling. Manual playback works without it.
 - The host uses a connected-device foreground service and holds a partial wake lock while at least one client is connected so playback sync can continue with its screen off. Android may show its notification in the active apps panel depending on notification settings.
 
 ## Playback behavior and limitations

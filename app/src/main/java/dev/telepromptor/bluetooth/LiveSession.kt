@@ -18,7 +18,7 @@ class LiveSession
         val radio: RfcommTransport,
     ) {
         var volumeShortcut = VolumeShortcut.OFF
-        var volumeCountdown = false
+        var onVolumePlayback: (() -> Unit)? = null
 
         fun togglePlayback(countdown: Boolean) {
             val view = session.view.value
@@ -39,7 +39,7 @@ class LiveSession
             if (event.action == KeyEvent.ACTION_DOWN) {
                 when (volumeShortcut) {
                     VolumeShortcut.OFF -> Unit
-                    VolumeShortcut.PLAY_PAUSE -> if (event.repeatCount == 0) togglePlayback(volumeCountdown)
+                    VolumeShortcut.PLAY_PAUSE -> if (event.repeatCount == 0) onVolumePlayback?.invoke()
                     VolumeShortcut.SPEED -> {
                         val amount = if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP) 5 else -5
                         session.update { it.copy(speedPxPerSec = (it.speedPxPerSec + amount).coerceIn(10f, 400f)) }
