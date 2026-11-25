@@ -116,6 +116,7 @@ class ScriptAssembler {
     private val buffer = java.io.ByteArrayOutputStream()
     private var next = 0
 
+    @Suppress("ReturnCount")
     fun accept(chunk: ScriptChunk): Script? {
         if (chunk.index == 0) {
             header = chunk

@@ -133,6 +133,7 @@ class RfcommTransport
                 result.invokeOnCancellation { job.cancel() }
             }
 
+        @Suppress("ReturnCount")
         private fun attach(socket: BluetoothSocket): String? {
             val address = socket.remoteDevice.address
             if (links.values.any { it.socket.remoteDevice.address == address }) return null

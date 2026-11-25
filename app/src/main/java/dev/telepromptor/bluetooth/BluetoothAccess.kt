@@ -105,7 +105,7 @@ fun BluetoothAccess(
                     } else if (Build.VERSION.SDK_INT >= 31) {
                         "Allow Nearby devices to find and connect to a host."
                     } else {
-                        "Android requires Location permission for Bluetooth discovery on this version. Telepromptor does not request your coordinates."
+                        "Android requires Location access to scan for Bluetooth devices. Telepromptor never reads your location."
                     },
                 )
                 if (denied) Text("Permission was denied. You can grant access in Android Settings.")
