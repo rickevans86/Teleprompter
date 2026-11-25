@@ -18,6 +18,24 @@ android {
         versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+    signingConfigs {
+        // Release signing comes from environment variables set by the Release workflow.
+        // Without them no release config exists, so debug and pull request builds need no secrets.
+        val releaseKeystore = System.getenv("RELEASE_KEYSTORE_PATH")
+        if (!releaseKeystore.isNullOrBlank()) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+    buildTypes {
+        release {
+            signingConfigs.findByName("release")?.let { signingConfig = it }
+        }
+    }
     buildFeatures {
         compose = true
         buildConfig = true
