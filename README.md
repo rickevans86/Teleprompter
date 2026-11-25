@@ -13,6 +13,12 @@ sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
 
 The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. Run Compose instrumentation tests with `./gradlew :app:connectedDebugAndroidTest` on an emulator or connected device. GitHub Actions builds the APK, runs the JVM and emulator suites, and uploads the debug APK. Run `./gradlew ktlintCheck detekt` for style and static analysis.
 
+## CI runner
+
+Pushes to `main` and `native-teleprompter` use a repository runner with the standard `self-hosted`, `Linux`, and `X64` labels. Pull requests and pushes to other branches use GitHub-hosted runners. Keep write access to the self-hosted branches limited to people you trust with the runner machine.
+
+The runner needs a supported version of the GitHub Actions runner software and access to GitHub, Maven and Android SDK downloads. The UI job uses an x86_64 emulator and requires hardware virtualization with read and write access to `/dev/kvm` for the runner account. The APK build and JVM tests can run without KVM.
+
 ## Connect two phones
 
 1. Install the debug APK on both phones. On the first phone, choose **HOST**, paste a script, optionally save it to the local script library, and tap **Go live**.
