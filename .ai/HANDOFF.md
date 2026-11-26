@@ -2,18 +2,18 @@
 
 **Agent** — Claude
 
-**Completed** — Issue #7: a manual `Release` workflow and env-driven signing config that build `Telepromptor.apk` signed with the key in repository secrets (`claude/7-signed-release`, stacked on #3 and #4). Earlier this session: issue #3 (CI SDK setup) and issue #4 (startup update check).
+**Completed** — Issue #9: Rick's "Android Release & Self-Update Setup" prompt applied to this repo (`claude/9-release-updater`, stacked on #3, #4 and #7). A push to `main` now builds and publishes a signed `Telepromptor.apk` under `v1.1.<run number>`, and Settings has an in-app **Check for updates** that downloads and installs it. Earlier in this work: issue #3 (CI SDK setup), issue #4 (startup update check, now reworked), issue #7 (manual signed release workflow, now replaced).
 
-**In progress** — Nothing. No independent reviewer is named for #1, #3, #4 or #7. Claude authored #3, #4 and #7 and cannot review them.
+**In progress** — Nothing. No independent reviewer is named for #1, #3, #4, #7 or #9. Claude authored #3, #4, #7 and #9 and cannot review them.
 
-**Branch/commit** — `claude/7-signed-release`, which includes the commits for #3 and #4. PRs #5, #6 and the one linked from issue #7 are open and not merged.
+**Branch/commit** — `claude/9-release-updater`, which contains the commits for #3, #4 and #7. Open PRs: #5, #6, #8 and the one linked from issue #9. None is merged. Merge in order: #5, #6, #8, then the #9 PR.
 
-**Tests** — Release run 45715101100 succeeded: secrets check, signed release build, `apksigner` verification, and the certificate fingerprint matched the generated keystore. The CI debug build and emulator tests for the final commit are recorded on the PR. Attaching to a release tag: Not run, because `workflow_dispatch` is only available once the workflow is on `main`. Installing the signed APK on a phone: Not run. ktlint and detekt: Not run, because the workspace has no Android SDK and CI does not run them.
+**Tests** — Verified on branch runs: ktlint and detekt on the whole project, unit tests (new `UpdateCheckerTest` and `UpdateFlowTest`), the Android build, the emulator UI tests (the Settings test now expects "Check for updates"), the signed release build with the APK certificate matching the keystore, and `versionCode` matching the run number. Not run: publishing a release (the publish step only runs from `main`, and was skipped on the branch), the first run of the workflow on the self-hosted runner, and downloading and installing an update on a phone.
 
-**Blockers** — Rick must merge PRs in order (#5, #6, then #7's PR) and name an independent reviewer. The published v1.1.0 is debug-signed, so the first release signed with this key needs an uninstall of the old version.
+**Blockers** — Rick must merge the PRs in order and name an independent reviewer. The first push to `main` after the merge publishes the first release signed with the release key. It cannot install over the debug-signed v1.1.0, so installed copies must be uninstalled first. The signing key was generated in an AI session and passed through the chat, so Rick may rotate it before relying on it.
 
-**Next action** — After merging, bump `versionCode` and `versionName`, create the release tag, then run Actions → Release → Run workflow with that tag. Install it on a phone and check the update banner. Rick may rotate the keystore before relying on it, since it was generated in an AI session.
+**Next action** — After merging, watch the first `Release APK` run on the self-hosted runner (`gh run watch`). Check that the release `v1.1.<run number>` has `Telepromptor.apk`, install it, then push a second change and confirm **Check for updates** offers it. Consider running ktlint and detekt in the normal CI, since style problems were only found by a temporary step.
 
 **Shared records updated** — Yes
 
-**Remote synchronization** — Confirmed against `origin/main` at `835af38`. PRs #5 and #6 were open and unmerged at the start of this work.
+**Remote synchronization** — Confirmed against `origin/main` at `835af38`. PRs #5, #6 and #8 were open and unmerged when this work started.

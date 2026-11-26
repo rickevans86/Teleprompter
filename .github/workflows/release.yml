@@ -2,8 +2,7 @@ name: Release APK
 
 on:
   push:
-    # TEMPORARY: the second branch lets issue #9 verify this workflow without publishing. Removed before the PR is final.
-    branches: [main, claude/9-release-updater]
+    branches: [main]
     paths-ignore:
       - '.ai/**'
       - '**/*.md'
@@ -66,10 +65,6 @@ jobs:
         run: |
           printf '%s' "$RELEASE_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
           echo "RELEASE_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
-      # TEMPORARY: reports style results for issue #9 without failing the run. Removed before the PR is final.
-      - name: Style checks (temporary)
-        continue-on-error: true
-        run: ./gradlew ktlintCheck detekt --continue
       - name: Build signed release APK
         env:
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}

@@ -32,3 +32,14 @@
 - No release was published or changed by Claude in this issue. v1.1.0 still carries the debug-signed APK.
 
 [Issue #7](https://github.com/rickevans86/Teleprompter/issues/7)
+
+## 2026-11-26 · Claude · Issue #9
+
+- Rick asked Claude to apply his "Android Release & Self-Update Setup" prompt to this repo. Much of it already existed on Claude's open branches, so Claude kept the existing secrets and signing config (`RELEASE_KEYSTORE_B64`, `RELEASE_KEYSTORE_PATH`, and so on, already set) and replaced the manual release workflow (#7) and the version-name update check (#4) with the prompt's design (branch `claude/9-release-updater`, stacked on #3, #4 and #7).
+- Build: `versionCode` and `versionName` come from `-PversionCode` and `-PversionName` with local defaults 1 and `0.0.1-dev`; a local release build falls back to the debug key. `release.yml` now runs on every push to `main` (skipping `.ai/**` and Markdown), builds on the self-hosted runner, and publishes `Telepromptor.apk` under `v1.1.<run number>`. Before publishing it checks that the APK certificate equals the keystore certificate and that the APK `versionCode` matches.
+- App: Settings has "Check for updates" with check, ready, permission, download and install states (`UpdateFlow`), a FileProvider and the install permission. The tag's trailing number is compared with `BuildConfig.VERSION_CODE`. The startup banner shares the same state and is skipped in debug builds. The old version-name comparison was removed.
+- Verified with branch runs (Release APK run 45758170297, Android run 45758170240): ktlint and detekt passed on the whole project after Claude fixed four detekt findings in its own code, both Android jobs (build, unit tests, emulator UI tests) passed, the APK certificate SHA-256 `02c07fb525ec627739518433aafeb45b8b23392ab6f3f902962be04b7cfe625e` matched the keystore, and `versionCode` 3 and `versionName` v1.1.3 matched. The publish step was skipped on the branch, and the only release is still v1.1.0. A temporary branch trigger and style step used for this were removed afterwards.
+- Not run: publishing a release (only possible from `main`), the first run of this workflow on the self-hosted runner, and installing an update on a phone. The existing UI test was changed from "Update app" to "Check for updates".
+- Rebuilt the task board from current GitHub Issues; it had listed #3, #4 and #7 as in-progress after they moved to review.
+
+[Issue #9](https://github.com/rickevans86/Teleprompter/issues/9)
