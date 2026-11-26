@@ -102,7 +102,7 @@ class UpdateFlow(
 class AndroidUpdateActions
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
         private val checker: UpdateChecker,
         private val downloader: UpdateDownloader,
         private val installer: ApkInstaller,

@@ -43,13 +43,15 @@ class UpdateCheckerTest {
     }
 
     @Test fun usesTheFirstApkAssetAndIgnoresOthers() {
-        val result = parseRelease(release("v1.1.5", "notes.txt" to "https://example.com/n", "Telepromptor.apk" to apkUrl), installedCode = 1)
-        assertEquals(UpdateResult.Available("v1.1.5", apkUrl), result)
+        val body = release("v1.1.5", "notes.txt" to "https://example.com/n", "Telepromptor.apk" to apkUrl)
+        assertEquals(UpdateResult.Available("v1.1.5", apkUrl), parseRelease(body, installedCode = 1))
     }
 
     @Test fun failsWhenThereIsNoUsableApk() {
-        assertTrue(parseRelease(release("v1.1.5"), installedCode = 1) is UpdateResult.Failed)
-        assertTrue(parseRelease(release("v1.1.5", "Telepromptor.apk" to "http://example.com/a.apk"), installedCode = 1) is UpdateResult.Failed)
+        val none = release("v1.1.5")
+        val insecure = release("v1.1.5", "Telepromptor.apk" to "http://example.com/a.apk")
+        assertTrue(parseRelease(none, installedCode = 1) is UpdateResult.Failed)
+        assertTrue(parseRelease(insecure, installedCode = 1) is UpdateResult.Failed)
     }
 
     @Test fun failsOnBadTagOrBadJson() {

@@ -27,7 +27,8 @@ internal fun updateMessage(state: UpdateState): String? =
     when (state) {
         UpdateState.UpToDate -> "You have the latest version."
         is UpdateState.Available -> "Version ${state.tag} is available."
-        is UpdateState.NeedPermission -> "Allow Telepromptor to install apps on the screen that opened, come back, then tap Continue installing."
+        is UpdateState.NeedPermission ->
+            "Allow Telepromptor to install apps on the screen that opened, come back, then tap Continue installing."
         is UpdateState.Installing -> "Follow the Android installer prompts."
         is UpdateState.Failed -> "Update failed: ${state.reason}"
         UpdateState.Idle, UpdateState.Checking, UpdateState.Downloading -> null

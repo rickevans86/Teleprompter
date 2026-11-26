@@ -54,12 +54,16 @@ fun parseRelease(
         try {
             json.decodeFromString<ReleaseInfo>(body)
         } catch (_: IllegalArgumentException) {
-            return UpdateResult.Failed("Unreadable release information")
-        }
-    val latest = releaseVersionCode(release.tagName) ?: return UpdateResult.Failed("Unrecognised release tag ${release.tagName}")
-    if (latest <= installedCode) return UpdateResult.UpToDate
+            null
+        } ?: return UpdateResult.Failed("Unreadable release information")
+    val latest = releaseVersionCode(release.tagName)
     val apk = release.assets.firstOrNull { it.name.endsWith(".apk") && it.url.startsWith("https://") }
-    return if (apk == null) UpdateResult.Failed("The release has no APK") else UpdateResult.Available(release.tagName, apk.url)
+    return when {
+        latest == null -> UpdateResult.Failed("Unrecognised release tag ${release.tagName}")
+        latest <= installedCode -> UpdateResult.UpToDate
+        apk == null -> UpdateResult.Failed("The release has no APK")
+        else -> UpdateResult.Available(release.tagName, apk.url)
+    }
 }
 
 class UpdateChecker

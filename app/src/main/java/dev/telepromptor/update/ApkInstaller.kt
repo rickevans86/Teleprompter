@@ -13,7 +13,7 @@ import javax.inject.Inject
 class ApkInstaller
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) {
         fun canInstall(): Boolean = context.packageManager.canRequestPackageInstalls()
 
