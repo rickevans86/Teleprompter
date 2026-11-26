@@ -4,3 +4,7 @@
 local.properties
 *.iml
 .kotlin/
+*.jks
+*.keystore
+*.apk
+*.aab

@@ -1,0 +1,117 @@
+name: Release APK
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '.ai/**'
+      - '**/*.md'
+  workflow_dispatch:
+
+# One release at a time, so two quick pushes never race for the same tag.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  # Tags are v<prefix>.<run number>. The updater reads the trailing number as the versionCode.
+  VERSION_PREFIX: '1.1'
+
+jobs:
+  build-release:
+    # main builds on the self-hosted runner (labels must match it exactly, see AGENTS.md).
+    # Anything else, such as a branch check, uses a GitHub-hosted runner. Fallback for main: ubuntu-latest.
+    runs-on: ${{ fromJSON(github.ref == 'refs/heads/main' && '["self-hosted", "Linux", "X64"]' || '["ubuntu-latest"]') }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v5
+      # packages: platform-tools skips the removed legacy 'tools' package that the default install requests.
+      # A bare Linux runner also needs 'unzip' installed for this step.
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
+      - name: Compute version
+        id: version
+        run: |
+          echo "code=$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "name=v$VERSION_PREFIX.$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+      - name: Check signing secrets
+        env:
+          RELEASE_KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          missing=0
+          for name in RELEASE_KEYSTORE_B64 RELEASE_KEYSTORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Repository secret $name is missing or empty."
+              missing=1
+            fi
+          done
+          exit $missing
+      - name: Restore keystore
+        env:
+          RELEASE_KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+        run: |
+          printf '%s' "$RELEASE_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "RELEASE_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+      - name: Build signed release APK
+        env:
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+        run: ./gradlew :app:assembleRelease -PversionCode="$VERSION_CODE" -PversionName="$VERSION_NAME"
+      - name: Verify the APK and name it
+        env:
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+        run: |
+          apk=app/build/outputs/apk/release/app-release.apk
+          tools="$ANDROID_HOME/build-tools/36.0.0"
+          "$tools/apksigner" verify --print-certs "$apk" | tee "$RUNNER_TEMP/certs.txt"
+          actual=$(grep -m1 'certificate SHA-256 digest' "$RUNNER_TEMP/certs.txt" | awk '{print $NF}')
+          expected=$(keytool -list -keystore "$RUNNER_TEMP/release.jks" -alias "$RELEASE_KEY_ALIAS" -storepass:env RELEASE_KEYSTORE_PASSWORD \
+            | grep -m1 'SHA-256' | sed 's/.*: //' | tr -d ':' | tr 'A-F' 'a-f')
+          echo "APK certificate:      $actual"
+          echo "Keystore certificate: $expected"
+          if [[ -z "$actual" || "$actual" != "$expected" ]]; then
+            echo "::error::The APK is not signed with the release keystore."
+            exit 1
+          fi
+          badging=$("$tools/aapt2" dump badging "$apk" | head -1)
+          echo "$badging"
+          if [[ "$badging" != *"versionCode='$VERSION_CODE'"* ]]; then
+            echo "::error::The APK versionCode does not match $VERSION_CODE."
+            exit 1
+          fi
+          cp "$apk" Telepromptor.apk
+      - uses: actions/upload-artifact@v5
+        with:
+          name: telepromptor-release
+          path: Telepromptor.apk
+      # Only runs from main. Branch and manual runs from other branches build and verify but never publish.
+      - name: Publish GitHub Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.name }}
+          name: Telepromptor ${{ steps.version.outputs.name }}
+          target_commitish: ${{ github.sha }}
+          files: Telepromptor.apk
+          generate_release_notes: true
+      - name: Remove keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"
