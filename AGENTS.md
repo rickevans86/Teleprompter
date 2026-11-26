@@ -7,6 +7,7 @@
 - **Install** — Run `sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'`, then `./gradlew :app:installDebug` with an emulator or Android device connected by adb.
 - **Run** — Run `adb shell am start -n dev.telepromptor/.MainActivity` after installation, or launch the app's `app` run configuration in Android Studio.
 - **Test** — Run `./gradlew :app:testDebugUnitTest` for JVM tests and `./gradlew :app:connectedDebugAndroidTest` with an emulator or device for Compose UI tests. `./gradlew :app:assembleDebugAndroidTest` compiles the UI tests.
+- **Release** — Every push to `main` builds a signed APK and publishes it to GitHub Releases as `Telepromptor.apk` under tag `v1.1.<run number>` (`.github/workflows/release.yml`; `versionCode` is the run number). Pushes that only change `.ai/**` or Markdown are skipped, and branch runs never publish. Repository secrets, names only: `RELEASE_KEYSTORE_B64`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`. Never commit or print the keystore or passwords. Runner labels used verbatim for `main` jobs: `self-hosted`, `Linux`, `X64` (the runner also has `github-actions-linux`); the fallback is `ubuntu-latest`. A bare Linux self-hosted runner needs `unzip` installed for the Android SDK setup step. The repository stays public so the in-app updater needs no token.
 - **Lint and format** — Run `./gradlew :app:ktlintCheck :app:detekt` to check and `./gradlew :app:ktlintFormat` to format.
 
 ## Authority and roles
