@@ -7,6 +7,10 @@ plugins {
     alias(libs.plugins.ktlint)
     alias(libs.plugins.detekt)
 }
+// Release builds get these from CI (-PversionCode, -PversionName); never edit them by hand.
+val appVersionCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
+val appVersionName = (project.findProperty("versionName") as String?) ?: "0.0.1-dev"
+
 android {
     namespace = "dev.telepromptor"
     compileSdk = 37
@@ -14,13 +18,13 @@ android {
         applicationId = "dev.telepromptor"
         minSdk = 26
         targetSdk = 37
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     signingConfigs {
         // Release signing comes from environment variables set by the Release workflow.
-        // Without them no release config exists, so debug and pull request builds need no secrets.
+        // Without them no release config exists, so local, debug and pull request builds need no secrets.
         val releaseKeystore = System.getenv("RELEASE_KEYSTORE_PATH")
         if (!releaseKeystore.isNullOrBlank()) {
             create("release") {
@@ -33,7 +37,8 @@ android {
     }
     buildTypes {
         release {
-            signingConfigs.findByName("release")?.let { signingConfig = it }
+            // Local release builds fall back to the debug key. CI verifies the real key was used.
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
     buildFeatures {

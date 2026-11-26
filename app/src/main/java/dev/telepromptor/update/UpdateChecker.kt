@@ -1,5 +1,6 @@
 package dev.telepromptor.update
 
+import dev.telepromptor.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -11,71 +12,77 @@ import java.net.URL
 import javax.inject.Inject
 
 const val LATEST_RELEASE_PAGE = "https://github.com/rickevans86/Teleprompter/releases/latest"
-const val LATEST_APK_URL = "$LATEST_RELEASE_PAGE/download/Telepromptor.apk"
 private const val LATEST_RELEASE_API = "https://api.github.com/repos/rickevans86/Teleprompter/releases/latest"
-private const val TIMEOUT_MS = 5_000
+private const val TIMEOUT_MS = 10_000
 
-data class AvailableUpdate(
-    val version: String,
+sealed interface UpdateResult {
+    data class Available(
+        val tag: String,
+        val apkUrl: String,
+    ) : UpdateResult
+
+    data object UpToDate : UpdateResult
+
+    data class Failed(
+        val reason: String,
+    ) : UpdateResult
+}
+
+@Serializable
+private data class ReleaseAsset(
+    val name: String = "",
+    @SerialName("browser_download_url") val url: String = "",
 )
 
 @Serializable
 private data class ReleaseInfo(
     @SerialName("tag_name") val tagName: String = "",
+    val assets: List<ReleaseAsset> = emptyList(),
 )
 
-/** Parses a release tag such as `v1.2.0` into numeric parts, or returns null if it is not a plain version. */
-fun parseVersion(text: String): List<Int>? {
-    val core = text.trim().removePrefix("v").substringBefore('-').substringBefore('+')
-    val numbers = core.split('.').map { it.toIntOrNull() }
-    return if (numbers.any { it == null }) null else numbers.filterNotNull()
-}
+private val json = Json { ignoreUnknownKeys = true }
 
-/** True only when [latest] is a valid version that is strictly greater than a valid [installed] version. */
-fun isNewerVersion(
-    installed: String,
-    latest: String,
-): Boolean {
-    val current = parseVersion(installed)
-    val candidate = parseVersion(latest)
-    if (current == null || candidate == null) return false
-    val differing =
-        (0 until maxOf(current.size, candidate.size)).firstOrNull {
-            current.getOrElse(it) { 0 } != candidate.getOrElse(it) { 0 }
+/** Release tags end in the build's versionCode (`v1.1.<versionCode>`). Returns it, or null if the tag has no such number. */
+fun releaseVersionCode(tag: String): Int? = tag.trim().substringAfterLast('.').toIntOrNull()
+
+/** Compares a GitHub "latest release" response with the installed versionCode. */
+fun parseRelease(
+    body: String,
+    installedCode: Int,
+): UpdateResult {
+    val release =
+        try {
+            json.decodeFromString<ReleaseInfo>(body)
+        } catch (_: IllegalArgumentException) {
+            return UpdateResult.Failed("Unreadable release information")
         }
-    return differing != null && candidate.getOrElse(differing) { 0 } > current.getOrElse(differing) { 0 }
+    val latest = releaseVersionCode(release.tagName) ?: return UpdateResult.Failed("Unrecognised release tag ${release.tagName}")
+    if (latest <= installedCode) return UpdateResult.UpToDate
+    val apk = release.assets.firstOrNull { it.name.endsWith(".apk") && it.url.startsWith("https://") }
+    return if (apk == null) UpdateResult.Failed("The release has no APK") else UpdateResult.Available(release.tagName, apk.url)
 }
 
 class UpdateChecker
     @Inject
     constructor() {
-        private val json = Json { ignoreUnknownKeys = true }
-
-        /** Returns the newer release, or null if up to date or the check could not be completed. */
-        suspend fun check(installedVersion: String): AvailableUpdate? =
+        suspend fun check(installedCode: Int = BuildConfig.VERSION_CODE): UpdateResult =
             withContext(Dispatchers.IO) {
                 try {
-                    fetchLatestTag()
-                        ?.takeIf { isNewerVersion(installedVersion, it) }
-                        ?.let { AvailableUpdate(it.trim().removePrefix("v")) }
-                } catch (_: IOException) {
-                    null
-                } catch (_: IllegalArgumentException) {
-                    null
+                    val connection = URL(LATEST_RELEASE_API).openConnection() as HttpURLConnection
+                    try {
+                        connection.connectTimeout = TIMEOUT_MS
+                        connection.readTimeout = TIMEOUT_MS
+                        connection.setRequestProperty("Accept", "application/vnd.github+json")
+                        if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                            UpdateResult.Failed("GitHub answered ${connection.responseCode}")
+                        } else {
+                            parseRelease(connection.inputStream.bufferedReader().use { it.readText() }, installedCode)
+                        }
+                    } finally {
+                        connection.disconnect()
+                    }
+                } catch (e: IOException) {
+                    UpdateResult.Failed(e.message ?: "Network error")
                 }
             }
-
-        private fun fetchLatestTag(): String? {
-            val connection = URL(LATEST_RELEASE_API).openConnection() as HttpURLConnection
-            try {
-                connection.connectTimeout = TIMEOUT_MS
-                connection.readTimeout = TIMEOUT_MS
-                connection.setRequestProperty("Accept", "application/vnd.github+json")
-                if (connection.responseCode != HttpURLConnection.HTTP_OK) return null
-                val body = connection.inputStream.bufferedReader().use { it.readText() }
-                return json.decodeFromString<ReleaseInfo>(body).tagName
-            } finally {
-                connection.disconnect()
-            }
-        }
     }
